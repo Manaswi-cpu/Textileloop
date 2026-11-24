@@ -129,7 +129,8 @@ def delete_waste(wid):
         c.execute("DELETE FROM waste_records WHERE id=?", (int(wid),))
 
 def requests_df(exclude_demo=False):
-    sql = ("SELECT cr.id, cr.coll_id, w.id AS waste_id, w.reg_id, w.material, w.cond, w.waste_category, w.image_path, w.is_demo, "
+    sql = ("SELECT cr.id, cr.coll_id, w.id AS waste_id, w.reg_id, w.generator, w.institution, w.contact AS generator_contact, "
+           "w.item_type, w.material, w.cond, w.waste_category, w.description AS batch_description, w.reg_date, w.image_path, w.is_demo, "
            "w.location AS waste_location, rd.id AS recycler_id, rd.name AS destination, rd.ftype, rd.location AS recycler_location, "
            "cr.quantity_kg, cr.request_date, cr.status "
            "FROM collection_requests cr JOIN waste_records w ON w.id=cr.waste_id JOIN recycler_directory rd ON rd.id=cr.recycler_id ")

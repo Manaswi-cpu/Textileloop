@@ -72,9 +72,13 @@ with t2:
                 st.markdown(f"""
                 - **Tracking ID:** `{selected_row.coll_id}`
                 - **Source Waste ID:** `{selected_row.reg_id}`
+                - **Contact Person:** `{selected_row.generator}` ({selected_row.institution})
+                - **Phone / Email:** **{selected_row.generator_contact}**
+                - **Item Classification:** {selected_row.item_type}
                 - **Material & Condition:** {selected_row.material} ({selected_row.cond})
                 - **Assigned Quantity:** **{selected_row.quantity_kg:.1f} kg**
                 - **Origin Facility:** {selected_row.waste_location}
+                - **Batch Notes / Description:** {selected_row.batch_description if str(selected_row.batch_description).strip() else "None provided"}
                 - **Current Processing Status:** **{selected_row.status}**
                 """)
             with col_img:

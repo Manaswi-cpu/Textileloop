@@ -91,11 +91,15 @@ else:
         st.markdown(f"""
         - **Unique Collection Tracking ID:** `{coll_id}`
         - **Source Waste Batch ID:** `{req_row.reg_id}`
+        - **Registrant / Contact Person:** `{req_row.generator}` ({req_row.institution})
+        - **Phone / Email:** **{req_row.generator_contact}**
+        - **Item Classification:** {req_row.item_type}
         - **Material Specification:** {req_row.material} ({req_row.cond})
         - **Waste Category:** {req_row.waste_category}
         - **Batch Quantity:** **{req_row.quantity_kg:.1f} kg**
         - **Origin Location:** {req_row.waste_location}
         - **Destination Partner:** {req_row.destination} ({req_row.ftype})
+        - **Batch Description / Notes:** {req_row.batch_description if str(req_row.batch_description).strip() else "None provided"}
         - **Current Custody Status:** **{cur}**
         """)
         

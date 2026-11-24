@@ -59,11 +59,26 @@ with t1:
         cur = cur_row.status
         st.caption(f"Current Status: **{cur}** | Batch ID: `{cur_row.reg_id}`")
         
-        # Display batch photo if available
-        from pathlib import Path
-        img_p = cur_row.image_path
-        if img_p and Path(str(img_p)).exists():
-            st.image(str(img_p), caption=f"Batch Photograph ({cur_row.reg_id})", width=220)
+        # Display registrant details and photo
+        col_meta, col_photo = st.columns([2, 1])
+        with col_meta:
+            st.markdown(f"""
+            - **Contact Person:** `{cur_row.generator}` ({cur_row.institution})
+            - **Phone / Email:** **{cur_row.generator_contact}**
+            - **Item Classification:** {cur_row.item_type}
+            - **Material & Condition:** {cur_row.material} ({cur_row.cond})
+            - **Origin Location:** {cur_row.waste_location}
+            - **Batch Quantity:** **{cur_row.quantity_kg:.1f} kg**
+            - **Assigned Partner:** {cur_row.destination} ({cur_row.ftype})
+            - **Batch Notes / Description:** {cur_row.batch_description if str(cur_row.batch_description).strip() else "None"}
+            """)
+        with col_photo:
+            from pathlib import Path
+            img_p = cur_row.image_path
+            if img_p and Path(str(img_p)).exists():
+                st.image(str(img_p), caption=f"Batch Photograph ({cur_row.reg_id})", width=220)
+            else:
+                st.caption("No photograph registered for this batch.")
         
         c1, c2 = st.columns([2, 1])
         new = c1.selectbox("Transition To New Status", STATUSES, index=STATUSES.index(cur) if cur in STATUSES else 0, key=f"status_select_{rid}")
@@ -86,19 +101,37 @@ with t1:
 
 with t2:
     st.markdown("#### Registered Waste Ledger")
-    w = query("SELECT id, reg_id, material, quantity_kg, image_path, is_demo FROM waste_records ORDER BY id DESC")
+    w = query("SELECT id, reg_id, generator, institution, gen_category, item_type, material, cond, quantity_kg, location, contact, reg_date, description, waste_category, image_path, is_demo FROM waste_records ORDER BY id DESC")
     if w.empty:
         st.info("No registered waste records present in the database.")
     else:
-        lab = {x.id: f"{x.reg_id} | {x.material} ({x.quantity_kg:.1f} kg){' [DEMO]' if x.is_demo else ''}" for x in w.itertuples()}
+        lab = {x.id: f"{x.reg_id} | {x.generator} - {x.institution} ({x.quantity_kg:.1f} kg){' [DEMO]' if x.is_demo else ''}" for x in w.itertuples()}
         wid = st.selectbox("Select Batch Record", list(lab), format_func=lab.get)
-        current_qty = float(w[w.id == wid].quantity_kg.iloc[0])
+        w_row = w[w.id == wid].iloc[0]
+        current_qty = float(w_row.quantity_kg)
         
-        # Display image preview if available
-        from pathlib import Path
-        img_p = w[w.id == wid].image_path.iloc[0]
-        if img_p and Path(str(img_p)).exists():
-            st.image(str(img_p), caption=f"Registered Batch Photograph ({w[w.id == wid].reg_id.iloc[0]})", width=300)
+        col_w_info, col_w_img = st.columns([2, 1])
+        with col_w_info:
+            st.markdown(f"""
+            ##### Generator & Registration Details
+            - **Contact Person:** `{w_row.generator}`
+            - **Institution / Entity:** {w_row.institution}
+            - **Sector / Category:** {w_row.gen_category}
+            - **Phone / Email:** **{w_row.contact}**
+            - **Origin Location:** {w_row.location}
+            - **Registration Date:** {w_row.reg_date}
+            - **Item Classification:** {w_row.item_type}
+            - **Material & Condition:** {w_row.material} ({w_row.cond})
+            - **Classification Outcome:** `{w_row.waste_category}`
+            - **Batch Description / Notes:** {w_row.description if str(w_row.description).strip() else "None provided"}
+            """)
+        with col_w_img:
+            from pathlib import Path
+            img_p = w_row.image_path
+            if img_p and Path(str(img_p)).exists():
+                st.image(str(img_p), caption=f"Batch Photograph ({w_row.reg_id})", width=250)
+            else:
+                st.caption("No photograph uploaded for this batch.")
             
         q = st.number_input("Verified Weight Correction (kg)", min_value=0.1, value=current_qty, step=0.5, key=f"weight_input_{wid}")
         c_save, c_del = st.columns([1, 1])
