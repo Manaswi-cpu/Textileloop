@@ -124,7 +124,21 @@ def update_waste_qty(wid, qty):
             raise ValueError(f"Quantity must be above 0 and at least the {used:.1f} kg already requested.")
         c.execute("UPDATE waste_records SET quantity_kg=? WHERE id=?", (qty, int(wid)))
 
+def remove_waste_image(wid):
+    """Delete the uploaded image file from disk and clear its path in the database."""
+    with closing(conn()) as c, c:
+        row = c.execute("SELECT image_path FROM waste_records WHERE id=?", (int(wid),)).fetchone()
+        if row and row[0]:
+            p = Path(row[0])
+            if p.exists():
+                try:
+                    p.unlink(missing_ok=True)
+                except Exception:
+                    pass
+            c.execute("UPDATE waste_records SET image_path=NULL WHERE id=?", (int(wid),))
+
 def delete_waste(wid):
+    remove_waste_image(wid)
     with closing(conn()) as c, c:
         c.execute("DELETE FROM waste_records WHERE id=?", (int(wid),))
 

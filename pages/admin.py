@@ -130,6 +130,10 @@ with t2:
             img_p = w_row.image_path
             if img_p and Path(str(img_p)).exists():
                 st.image(str(img_p), caption=f"Batch Photograph ({w_row.reg_id})", width=250)
+                if st.button("🗑️ Delete Photograph Only", key=f"btn_del_photo_{wid}"):
+                    remove_waste_image(wid)
+                    st.session_state["flash"] = f"Photograph for record {w_row.reg_id} was removed from the system and storage."
+                    st.rerun()
             else:
                 st.caption("No photograph uploaded for this batch.")
             
