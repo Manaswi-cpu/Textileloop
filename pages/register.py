@@ -1,7 +1,7 @@
 import re
 from datetime import date
 import streamlit as st
-from database import add_waste, dispatch_new_registration
+from database import add_waste, dispatch_new_registration, query
 from classification import *
 import components as ui
 
@@ -40,6 +40,63 @@ elif photo_mode == "Upload Image File":
 if active_img:
     st.image(active_img, caption="Photograph Preview — Verified for Ingestion", width=320)
 
+st.subheader("4. Destination Facility & NGO Selection")
+dest_mode = st.radio(
+    "Destination Routing Option",
+    ["Automatic Recommendation & Matching (Default)", "Select Specific NGO / Donation Centre / Recycler"],
+    horizontal=True,
+    key="reg_dest_mode"
+)
+
+selected_partner_id = None
+if dest_mode == "Select Specific NGO / Donation Centre / Recycler":
+    st.caption("You can choose your preferred destination facility directly from verified NGOs and recycling centers.")
+    dir_df = query("SELECT id, name, ftype, materials, collection, location, contact, description FROM recycler_directory ORDER BY name")
+    
+    col_cfilter, col_pselect = st.columns([1, 2])
+    city_choice = col_cfilter.selectbox(
+        "Filter by City",
+        ["All Cities", "Amravati", "Latur", "Mumbai", "Pune", "Other Regions"],
+        key="reg_ngo_city_filter"
+    )
+    
+    filtered_dir = dir_df
+    if city_choice == "Amravati":
+        filtered_dir = filtered_dir[filtered_dir.location.str.contains("Amravati", case=False, na=False)]
+    elif city_choice == "Latur":
+        filtered_dir = filtered_dir[filtered_dir.location.str.contains("Latur", case=False, na=False)]
+    elif city_choice == "Mumbai":
+        filtered_dir = filtered_dir[filtered_dir.location.str.contains("Mumbai", case=False, na=False)]
+    elif city_choice == "Pune":
+        filtered_dir = filtered_dir[filtered_dir.location.str.contains("Pune|Moshi|Talegaon", case=False, na=False)]
+    elif city_choice == "Other Regions":
+        filtered_dir = filtered_dir[~filtered_dir.location.str.contains("Amravati|Latur|Mumbai|Pune|Moshi|Talegaon", case=False, na=False)]
+        
+    if filtered_dir.empty:
+        st.warning("No facilities listed under this city filter.")
+    else:
+        partner_labels = {
+            row.id: f"{row.name} ({row.location} — {row.ftype})"
+            for row in filtered_dir.itertuples()
+        }
+        selected_partner_id = col_pselect.selectbox(
+            "Select Receiving NGO / Facility",
+            list(partner_labels),
+            format_func=partner_labels.get,
+            key="reg_selected_partner"
+        )
+        
+        # Display selected partner brief
+        chosen_partner = filtered_dir[filtered_dir.id == selected_partner_id].iloc[0]
+        st.info(
+            f"📍 **Selected Destination:** **{chosen_partner['name']}**\n\n"
+            f"- **Classification:** `{chosen_partner['ftype']}` | **Location:** {chosen_partner['location']}\n"
+            f"- **Collection Method:** {chosen_partner['collection']}\n"
+            f"- **Intake Scope:** {chosen_partner['description']}"
+        )
+else:
+    st.info("🤖 **Automatic Matching Enabled:** The system will automatically evaluate fabric fiber type, condition, and location to connect your batch to the most suitable registered facility.")
+
 st.markdown("<div style='height: 14px'></div>", unsafe_allow_html=True)
 go = st.button("Submit Waste Registration", key="btn_reg_submit", type="primary")
 
@@ -66,11 +123,12 @@ if go:
             description=desc.strip(),
             file_obj=active_img
         ))
-        match = dispatch_new_registration(reg)
+        match = dispatch_new_registration(reg, preferred_partner_id=selected_partner_id)
         if match:
+            dest_verb = "Directly connected to selected facility" if selected_partner_id else "Automatically matched to"
             st.success(
-                f"Registration successful. System Tracking Identifier: **{reg}**. "
-                f"Matched to **{match['name']}** ({match['location']}) and collection request **{match['coll_id']}** was created."
+                f"Registration successful! System Tracking Identifier: **{reg}**. "
+                f"{dest_verb} **{match['name']}** ({match['location']}) — Collection Request **{match['coll_id']}** created."
             )
         else:
             st.success(f"Registration successful. System Tracking Identifier: **{reg}**")

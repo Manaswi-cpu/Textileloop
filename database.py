@@ -297,14 +297,24 @@ def _dispatch(waste_id, qty, notes, exclude_ids=()):
     partner["coll_id"] = add_request(int(waste_id), partner["id"], float(qty), notes=notes)
     return partner
 
-def dispatch_new_registration(reg_id):
-    """Create a collection request for a newly registered batch using the best directory match."""
+def dispatch_new_registration(reg_id, preferred_partner_id=None):
+    """Create a collection request for a newly registered batch using either a preferred partner or the best directory match."""
     waste = query("SELECT id, quantity_kg FROM waste_records WHERE reg_id=?", (reg_id,))
     if waste.empty:
         return None
+    waste_id = int(waste.id[0])
+    qty = float(waste.quantity_kg[0])
+    
+    if preferred_partner_id:
+        partner_df = query("SELECT id, name, ftype, location FROM recycler_directory WHERE id=?", (int(preferred_partner_id),))
+        if not partner_df.empty:
+            p_row = partner_df.iloc[0]
+            cid = add_request(waste_id, int(preferred_partner_id), qty, notes="User manually selected preferred destination facility during registration.")
+            return {"id": int(preferred_partner_id), "name": p_row["name"], "ftype": p_row["ftype"], "location": p_row["location"], "coll_id": cid}
+
     return _dispatch(
-        int(waste.id[0]),
-        float(waste.quantity_kg[0]),
+        waste_id,
+        qty,
         "Automatically matched at registration by category and region.",
     )
 
