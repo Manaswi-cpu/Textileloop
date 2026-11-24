@@ -124,6 +124,34 @@ def update_waste_qty(wid, qty):
             raise ValueError(f"Quantity must be above 0 and at least the {used:.1f} kg already requested.")
         c.execute("UPDATE waste_records SET quantity_kg=? WHERE id=?", (qty, int(wid)))
 
+DATA_RETENTION_DAYS = 30  # User records are automatically purged after this many days
+
+def purge_expired_records():
+    """Delete all non-demo waste records (and their photos, requests, and audit logs)
+    registered more than DATA_RETENTION_DAYS ago. Returns count of purged records."""
+    cutoff = (date.today() - timedelta(days=DATA_RETENTION_DAYS)).isoformat()
+    with closing(conn()) as c:
+        expired = c.execute(
+            "SELECT id, image_path FROM waste_records WHERE is_demo=0 AND reg_date <= ?",
+            (cutoff,)
+        ).fetchall()
+        if not expired:
+            return 0
+        # Delete associated uploaded photographs from disk
+        for _, img_path in expired:
+            if img_path:
+                p = Path(img_path)
+                if p.exists():
+                    try:
+                        p.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+        expired_ids = [row[0] for row in expired]
+        placeholders = ",".join("?" * len(expired_ids))
+        with c:
+            c.execute(f"DELETE FROM waste_records WHERE id IN ({placeholders})", expired_ids)
+    return len(expired_ids)
+
 def remove_waste_image(wid):
     """Delete the uploaded image file from disk and clear its path in the database."""
     with closing(conn()) as c, c:
@@ -386,3 +414,5 @@ def init_db():
         to_insert = [f for f in FACILITIES if f[0] not in existing_names]
         if to_insert:
             c.executemany("INSERT INTO recycler_directory(name,ftype,materials,collection,location,contact,description,is_demo) VALUES(?,?,?,?,?,?,?,0)", to_insert)
+    # Purge expired user records (older than DATA_RETENTION_DAYS) on every startup
+    purge_expired_records()
